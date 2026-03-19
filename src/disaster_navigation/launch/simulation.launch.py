@@ -127,6 +127,69 @@ def generate_launch_description():
         ]
     )
 
+    # Nav2 controller + planner
+    controller_server = TimerAction(
+        period=17.0,
+        actions=[
+            Node(
+                package='nav2_controller',
+                executable='controller_server',
+                name='controller_server',
+                output='screen',
+                parameters=[
+                    nav2_params_file,
+                    {'use_sim_time': True}
+                ],
+            ),
+            Node(
+                package='nav2_planner',
+                executable='planner_server',
+                name='planner_server',
+                output='screen',
+                parameters=[
+                    nav2_params_file,
+                    {'use_sim_time': True}
+                ]
+            ),
+            Node(
+                package='nav2_behaviors',
+                executable='behavior_server',
+                name='behavior_server',
+                output='screen',
+                parameters=[
+                    nav2_params_file,
+                    {'use_sim_time': True}
+                ]
+            ),
+            Node(
+                package='nav2_bt_navigator',
+                executable='bt_navigator',
+                name='bt_navigator',
+                output='screen',
+                parameters=[
+                    nav2_params_file,
+                    {'use_sim_time': True}
+                ]
+            ),
+            Node(
+                package='nav2_lifecycle_manager',
+                executable='lifecycle_manager',
+                name='lifecycle_manager_navigation',
+                output='screen',
+                parameters=[{
+                    'use_sim_time': True,
+                    'autostart': True,
+                    'node_names': [
+                        'planner_server',
+                        'controller_server',
+                        'behavior_server',
+                        'bt_navigator',
+                    ]
+                }]
+            ),
+        ]
+    )
+
     return LaunchDescription([
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
@@ -138,5 +201,6 @@ def generate_launch_description():
         spawn_robot,
         ekf_node,
         slam_node,
+        controller_server,
         rviz_node
     ])
