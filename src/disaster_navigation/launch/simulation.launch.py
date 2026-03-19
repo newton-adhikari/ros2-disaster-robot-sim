@@ -112,6 +112,21 @@ def generate_launch_description():
         ]
     )
 
+    rviz_node = TimerAction(
+        period=7.0,
+        actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                output='screen',
+                arguments=['-d', rviz_config_file],
+                parameters=[{'use_sim_time': True}],
+                condition=IfCondition(LaunchConfiguration('use_rviz'))
+            )
+        ]
+    )
+
     return LaunchDescription([
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
@@ -122,5 +137,6 @@ def generate_launch_description():
         robot_state_pub,
         spawn_robot,
         ekf_node,
-        slam_node
+        slam_node,
+        rviz_node
     ])
