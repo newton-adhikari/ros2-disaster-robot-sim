@@ -79,6 +79,22 @@ def generate_launch_description():
         ]
     )
 
+    ekf_node = TimerAction(
+        period=5.0,
+        actions=[
+            Node(
+                package='robot_localization',
+                executable='ekf_node',
+                name='ekf_filter_node',
+                output='screen',
+                parameters=[
+                    ekf_params_file,
+                    {'use_sim_time': True}
+                ]
+            )
+        ]
+    )
+
     return LaunchDescription([
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
@@ -87,5 +103,6 @@ def generate_launch_description():
         gzserver,
         gzclient,
         robot_state_pub,
-        spawn_robot
+        spawn_robot,
+        ekf_node
     ])
