@@ -95,6 +95,23 @@ def generate_launch_description():
         ]
     )
 
+    slam_node = TimerAction(
+        period=12.0,
+        actions=[
+            Node(
+                package='slam_toolbox',
+                executable='async_slam_toolbox_node',
+                name='slam_toolbox',
+                output='screen',
+                parameters=[
+                    slam_params_file,
+                    {'use_sim_time': True}
+                ],
+                condition=IfCondition(LaunchConfiguration('slam'))
+            )
+        ]
+    )
+
     return LaunchDescription([
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
@@ -104,5 +121,6 @@ def generate_launch_description():
         gzclient,
         robot_state_pub,
         spawn_robot,
-        ekf_node
+        ekf_node,
+        slam_node
     ])
