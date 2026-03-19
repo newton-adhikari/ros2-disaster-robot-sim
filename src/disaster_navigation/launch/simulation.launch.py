@@ -80,6 +80,9 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        LogInfo(msg=''),
+        LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
+        LogInfo(msg=''),
         set_model_path,
         gzserver,
         gzclient,
