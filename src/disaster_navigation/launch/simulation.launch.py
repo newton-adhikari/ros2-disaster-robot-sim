@@ -23,6 +23,25 @@ def generate_launch_description():
     rviz_config_file = os.path.join(disaster_nav_pkg,   'rviz',   'disaster_full.rviz')
     model_path       = os.path.join(disaster_world_pkg, 'models')
 
+    declare_gui = DeclareLaunchArgument(
+        'gui', default_value='true',
+        description='Launch Gazebo GUI'
+    )
+
+    declare_use_rviz = DeclareLaunchArgument(
+        'use_rviz', default_value='true',
+        description='Launch RViz2'
+    )
+
+    declare_slam = DeclareLaunchArgument(
+        'slam', default_value='true',
+        description='Run SLAM (true) or localise against saved map (false)'
+    )
+    
+    declare_map = DeclareLaunchArgument(
+        'map', default_value='',
+        description='Path to map .yaml (only used when slam:=false)'
+    )
     declare_x   = DeclareLaunchArgument('x',   default_value='0.0')
     declare_y   = DeclareLaunchArgument('y',   default_value='-2.0')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='1.5708')
@@ -117,22 +136,7 @@ def generate_launch_description():
         ]
     )
 
-    rviz_node = TimerAction(
-        period=7.0,
-        actions=[
-            Node(
-                package='rviz2',
-                executable='rviz2',
-                name='rviz2',
-                output='screen',
-                arguments=['-d', rviz_config_file],
-                parameters=[{'use_sim_time': True}],
-                condition=IfCondition(LaunchConfiguration('use_rviz'))
-            )
-        ]
-    )
-
-    # Nav2 controller + planner
+    # Nav2 controller + planner (delayed to let map build)
     controller_server = TimerAction(
         period=17.0,
         actions=[
@@ -195,10 +199,29 @@ def generate_launch_description():
         ]
     )
 
+    rviz_node = TimerAction(
+        period=7.0,
+        actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                output='screen',
+                arguments=['-d', rviz_config_file],
+                parameters=[{'use_sim_time': True}],
+                condition=IfCondition(LaunchConfiguration('use_rviz'))
+            )
+        ]
+    )
+
     return LaunchDescription([
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
         LogInfo(msg=''),
+        declare_gui,
+        declare_use_rviz,
+        declare_slam,
+        declare_map,
         declare_x,
         declare_y,
         declare_yaw,
