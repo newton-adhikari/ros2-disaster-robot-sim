@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from ament_index_python.packages import get_package_share_directory
 import os
-from launch.actions import (SetEnvironmentVariable,IncludeLaunchDescription, TimerAction, LogInfo)
+from launch.actions import (DeclareLaunchArgument,SetEnvironmentVariable,IncludeLaunchDescription, TimerAction, LogInfo)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, Command
@@ -22,6 +22,11 @@ def generate_launch_description():
     slam_params_file = os.path.join(disaster_nav_pkg,   'config', 'slam_toolbox_params.yaml')
     rviz_config_file = os.path.join(disaster_nav_pkg,   'rviz',   'disaster_full.rviz')
     model_path       = os.path.join(disaster_world_pkg, 'models')
+
+    declare_x   = DeclareLaunchArgument('x',   default_value='0.0')
+    declare_y   = DeclareLaunchArgument('y',   default_value='-2.0')
+    declare_yaw = DeclareLaunchArgument('yaw', default_value='1.5708')
+
 
     set_model_path = SetEnvironmentVariable(
         'GAZEBO_MODEL_PATH',
@@ -194,6 +199,9 @@ def generate_launch_description():
         LogInfo(msg=''),
         LogInfo(msg='DISASTER ROBOT SIMULATOR — LAUNCH'),
         LogInfo(msg=''),
+        declare_x,
+        declare_y,
+        declare_yaw,
         set_model_path,
         gzserver,
         gzclient,
