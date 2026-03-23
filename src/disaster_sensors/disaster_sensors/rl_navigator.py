@@ -77,8 +77,122 @@ class RLNavigator(Node):
         self.get_logger().info(f'Goal: ({self.goal_x:.1f}, {self.goal_y:.1f})')
 
     def _loop(self):
-        pass
-        # will implement later
+        cmd = Twist()
+
+        # to pause the robot after reset 
+        if self.state == 'WAIT':
+            if self.wait_ticks > 0:
+                self.wait_ticks -= 1
+            elif self.lidar_ok and self.odom_ok:
+                self.state = 'NAVIGATE' if self.mode == 'navigate' else 'FORWARD'
+                self.get_logger().info(f'Ready → {self.state}')
+            self.cmd_pub.publish(cmd)
+            return
+
+        # logic for turn
+        if self.state == 'TURN':
+            self.turn_ticks -= 1
+            # Small forward arc during turn — prevents spinning in place
+            cmd.linear.x  = 0.03
+            cmd.angular.z = self.turn_dir * self.MAX_ANG
+
+            if self.turn_ticks <= 0:
+                if self.front > self.STOP_DIST:
+                    self.state = 'FORWARD'
+                    self.forward_ticks = 0
+                    self.get_logger().info(f'Path clear ({self.front:.2f}m) → FORWARD')
+                else:
+                    # move to other direction
+                    self.turn_dir *= -1
+                    self.turn_ticks = 15
+                    self.get_logger().info('Still blocked, trying other direction')
+            self.cmd_pub.publish(cmd)
+            return
+
+        # logic for forward
+        if self.state == 'FORWARD':
+            self.forward_ticks += 1
+
+            # Force a turn every 60 steps
+            if self.forward_ticks > 60:
+                open_left  = min(self.left, self.fl)
+                open_right = min(self.right, self.fr)
+                self.turn_dir   = 1.0 if open_left >= open_right else -1.0
+                self.turn_ticks = 20
+                self.state      = 'TURN'
+                self.forward_ticks = 0
+                self.get_logger().info('Periodic direction change')
+                self.cmd_pub.publish(cmd)
+                return
+
+            if self.front <= self.STOP_DIST:
+                self.turn_dir   = 1.0 if self.fl >= self.fr else -1.0
+                self.turn_ticks = 20
+                self.state      = 'TURN'
+                self.forward_ticks = 0
+                self.get_logger().info(
+                    f'Obstacle {self.front:.2f}m → TURN '
+                    f'{"left" if self.turn_dir>0 else "right"}'
+                )
+                cmd.linear.x  = 0.03
+                cmd.angular.z = self.turn_dir * self.MAX_ANG
+                self.cmd_pub.publish(cmd)
+                return
+
+            speed = self.MAX_LIN
+            if self.front < self.SLOW_DIST:
+                t = (self.front - self.STOP_DIST) / (self.SLOW_DIST - self.STOP_DIST)
+                speed = self.MAX_LIN * max(0.3, t)
+
+            ang = 0.0
+            if self.left < 0.4 and self.left < self.right:
+                ang = -0.2
+            elif self.right < 0.4 and self.right < self.left:
+                ang = 0.2
+
+            cmd.linear.x  = speed
+            cmd.angular.z = ang
+            self.cmd_pub.publish(cmd)
+            return
+
+        # logic for navigate
+        if self.state == 'NAVIGATE':
+            dx = self.goal_x - self.robot_x
+            dy = self.goal_y - self.robot_y
+            dist = math.sqrt(dx*dx + dy*dy)
+
+            if dist < 0.4:
+                self.get_logger().info(
+                    f'Goal reached! ({self.robot_x:.1f}, {self.robot_y:.1f})')
+                self.mode  = 'explore'
+                self.state = 'FORWARD'
+                self.forward_ticks = 0
+                self.cmd_pub.publish(cmd)
+                return
+
+            # Heading error toward goal
+            target = math.atan2(dy, dx)
+            err    = (target - self.robot_yaw + math.pi) % (2*math.pi) - math.pi
+
+            if self.front <= self.STOP_DIST:
+                # turn toward most open side
+                avoid = 1.0 if self.fl >= self.fr else -1.0
+                cmd.linear.x  = 0.03
+                cmd.angular.z = avoid * self.MAX_ANG
+            elif abs(err) > 1.0:
+                # turn in place first
+                cmd.linear.x  = 0.0
+                cmd.angular.z = np.clip(err * 1.2, -self.MAX_ANG, self.MAX_ANG)
+            else:
+                # Drive toward goal slowly
+                speed = self.MAX_LIN * min(1.0, self.front / self.SLOW_DIST)
+                cmd.linear.x  = max(0.05, speed)
+                cmd.angular_z = np.clip(err * 0.9, -self.MAX_ANG * 0.7,
+                                                     self.MAX_ANG * 0.7)
+                cmd.angular.z = float(np.clip(err * 0.9, -self.MAX_ANG*0.7,
+                                                           self.MAX_ANG*0.7))
+
+            self.cmd_pub.publish(cmd)
 
 def main(args=None):
     rclpy.init(args=args)
