@@ -3,6 +3,7 @@ from rclpy.node import Node
 import time
 
 from nav_msgs.msg import Odometry
+from gazebo_msgs.msg import ModelStates
 
 
 class EKFDataCollector(Node):
@@ -20,6 +21,7 @@ class EKFDataCollector(Node):
 
         self.create_subscription(Odometry, '/odom', self._raw_cb, qos)
         self.create_subscription(Odometry, '/odometry/filtered', self._ekf_cb, qos)
+        self.create_subscription(ModelStates, '/gazebo/model_states', self._gt_cb, qos)
 
     def _raw_cb(self, msg):
         t = self._ts(msg.header)
@@ -42,6 +44,17 @@ class EKFDataCollector(Node):
 
         # filtered odom data
         self.ekf_odom.append((t, msg.pose.pose.position.x, msg.pose.pose.position.y, self._yaw(msg.pose.pose.orientation)))
+
+    def _gt_cb(self, msg):
+        if self.start_time is None:
+            return
+        try:
+            idx = msg.name.index('disaster_robot')
+        except ValueError:
+            return
+        p = msg.pose[idx]
+        
+        self.groundtruth.append((time.time(), p.position.x, p.position.y, self._yaw(p.orientation)))
 
 
 def main():
