@@ -23,6 +23,10 @@ class EKFDataCollector(Node):
         self.create_subscription(Odometry, '/odometry/filtered', self._ekf_cb, qos)
         self.create_subscription(ModelStates, '/gazebo/model_states', self._gt_cb, qos)
 
+        self.get_logger().info(f'Recording for {duration}s ')
+        self.get_logger().info('Waiting for /odom and /odometry/filtered ...')
+
+
     def _raw_cb(self, msg):
         t = self._ts(msg.header)
 
