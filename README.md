@@ -40,7 +40,7 @@ Explore on its own using either a simple reactive method or a trained PPO (reinf
   - [6. Reward Function](#6-reward-function)
   - [7. PPO Algorithm](#7-proximal-policy-optimization)
   - [8. Coverage Metric](#8-exploration-coverage-metric)
-- [System Architecture](#system-architecture)
+- [](#system-architecture)
 - [Robot Platform](#robot-platform)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -102,6 +102,9 @@ The reactive policy achieves **17.4% mean coverage**, 32% above random walk. An 
 | **LiDAR Range** | 12 m, 360° at 10 Hz |
 | **EKF Update Rate** | 30 Hz |
 | **Simulation Physics** | ODE @ 1000 Hz, RTF ≈ 1.6–2.0× |
+
+### EKF Trajectory Result
+![EKF Trajectory](/ekf_trajectory.png)
 
 ---
 
@@ -283,9 +286,9 @@ $$d_{\text{goal}} = \frac{1}{1 + \|\mathbf{p}_{\text{goal}} - \mathbf{p}_t\|_2}$
 
 Goal bearing in robot frame, normalised to $[-1,\, 1]$:
 
-$$\psi_{\text{goal}} = \frac{1}{\pi}\operatorname{wrap}\!\bigl(\operatorname{atan2}(y_g - y_t,\ x_g - x_t) - \theta_t\bigr)$$
+$$\psi_{\text{goal}} = \frac{1}{\pi}\,\text{wrap}\!\left(\text{atan2}(y_g - y_t,\ x_g - x_t) - \theta_t\right)$$
 
-where $\operatorname{wrap}(\cdot)$ maps to $(-\pi, \pi]$.
+where $\text{wrap}(\cdot)$ maps to $(-\pi,\, \pi]$.
 
 ### 4.3 EKF-Derived Velocities
 
@@ -367,7 +370,7 @@ $$R_{\text{prox}} = \begin{cases} 1.5 \cdot (3.0 - d) & \text{if } d < 3.0 \text
 
 PPO maximises a clipped surrogate objective:
 
-$$L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\,\hat{A}_t,\quad \operatorname{clip}(r_t(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\,\hat{A}_t\right)\right]$$
+$$L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\,\hat{A}_t,\quad \text{clip}\!\left(r_t(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_t\right)\right]$$
 
 ### 7.1 Probability Ratio
 
@@ -433,26 +436,7 @@ Cells are classified as **free** if occupancy probability $P(m_{ij}=1) < 0.25$ (
 
 ## System Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      DISASTER ROBOT SYSTEM                        │
-│                                                                    │
-│   Sensors               Fusion             Planning                │
-│  ┌───────┐            ┌───────┐          ┌──────────┐             │
-│  │ LiDAR │──/scan────▶│       │          │  SLAM    │             │
-│  │ 360°  │            │  EKF  │─/odom/──▶│ Toolbox  │──/map──▶   │
-│  │ 10 Hz │            │ node  │ filtered │ (Async)  │             │
-│  └───────┘            │       │          └──────────┘             │
-│  ┌───────┐            │       │                                    │
-│  │  IMU  │──/imu─────▶│       │          ┌──────────┐             │
-│  │ 200Hz │            └───────┘          │    RL    │             │
-│  └───────┘                 │             │Navigator │             │
-│  ┌───────┐                 └────────────▶│ Reactive │─/cmd_vel──▶ │
-│  │Camera │──/camera/──────────────────▶  │  or PPO  │             │
-│  │ 30fps │   image_raw   YOLOv8          └──────────┘             │
-│  └───────┘                                                         │
-└──────────────────────────────────────────────────────────────────┘
-```
+![System Architecture](/SystemArchitectureDisasterRobotics.jpg)
 
 ### ROS 2 Topic Graph
 
@@ -535,20 +519,6 @@ pip install --break-system-packages \
     Pillow pyyaml numpy matplotlib pandas
 ```
 
-### Step 3: Build Workspace
-
-```bash
-mkdir -p ~/disaster-robot-sim/src
-cd ~/disaster-robot-sim/src
-git clone https://github.com/newton-adhikari/disaster-robot-sim.git .
-cd ~/disaster-robot-sim
-
-colcon build --symlink-install
-source install/setup.bash
-echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
-source ~/.bashrc
-```
-
 ---
 
 ## Usage
@@ -558,7 +528,7 @@ source ~/.bashrc
 ```bash
 # Terminal 1 — full stack (Gazebo + EKF + SLAM + Nav2 + RViz)
 export TURTLEBOT3_MODEL=waffle
-ros2 launch disaster_navigation full_simulation.launch.py
+ros2 launch disaster_navigation imulation.launch.py
 ```
 
 Wait ~20 seconds for full startup sequence: Gazebo (0s) → Robot spawn (3s) → EKF (5s) → SLAM (12s) → Nav2 (17s).
@@ -632,7 +602,7 @@ colcon build --symlink-install && source install/setup.bash
 
 ```bash
 # Terminal 1: launch without RViz to save CPU
-ros2 launch disaster_navigation full_simulation.launch.py use_rviz:=false
+ros2 launch disaster_navigation simulation.launch.py use_rviz:=false
 
 # Terminal 2: curriculum training
 python3 disaster_rl_trainer/scripts/train_curriculum.py
@@ -692,7 +662,7 @@ disaster-robot-sim/
 │   │   │   ├── nav2_params.yaml         # Nav2 DWB planner config
 │   │   │   └── slam_toolbox_params.yaml # Async SLAM parameters
 │   │   ├── launch/
-│   │   │   ├── full_simulation.launch.py    # Main launch (timed sequence)
+│   │   │   ├── simulation.launch.py    # Main launch (timed sequence)
 │   │   │   └── rl_navigator.launch.py       # Navigator launch
 │   │   └── rviz/
 │   │       └── disaster_full.rviz
@@ -700,18 +670,18 @@ disaster-robot-sim/
 │   └── disaster_sensors/            # Python sensor processing nodes
 │       └── disaster_sensors/
 │           ├── rl_navigator.py          # Reactive FSM navigation agent
-│           ├── camera_processor.py      # YOLOv8 survivor detection
+│           ├── camera_processor.py      # YOLOv8 survivor detection [will be implemented later]
 │           ├── ekf_monitor.py           # EKF diagnostics and CSV logging
 │           ├── lidar_processor.py       # LiDAR gap detection utility
 │           ├── collect_ekf_data.py      # EKF vs odometry comparison (Experiment 1)
 │           ├── random_walk_patch.py     # Patches rl_navigator for random walk baseline
 │           ├── measure_coverage.py      # Map coverage analysis from .pgm files
 │           └── training/
-│               └── train_disaster_yolov8.py  # YOLOv8 fine-tuning on custom dataset
+│               └── train_disaster_yolov8.py  # YOLOv8 fine-tuning on custom dataset [ will be implemented later ]
 │
 └── scripts/
-    ├── record_demo.py               # Record EKF trajectory data to bag
-    └── plot_ekf_results.py          # Generate trajectory comparison figures
+    ├── record_demo.py               # Record EKF trajectory data to bag [ will be implemented later ]
+    └── plot_ekf_results.py          # Generate trajectory comparison figures [ will be implemented later ]
 ```
 
 ---
@@ -725,24 +695,9 @@ disaster-robot-sim/
 | Robot doesn't move | Stale `install/` from previous build | `rm -rf build/ install/ log/` then `colcon build --symlink-install` |
 | RViz entirely purple | Fixed Frame = `map` before SLAM builds TF | Change Fixed Frame to `odom` in RViz → Global Options |
 | LiDAR reads 0.12–0.15 m everywhere | Self-hits from chassis geometry | LiDAR `min_range` set to 0.25 m in URDF — already handled |
-| Coverage > 100% | Sim not restarted between trials | Always kill and relaunch `full_simulation.launch.py` between trials |
+| Coverage > 100% | Sim not restarted between trials | Always kill and relaunch `simulation.launch.py` between trials |
 | PPO collapses to ep_len=1 | Gazebo physics reset bug | See [PPO Training — Known Limitation](#ppo-training--known-limitation) |
 | `/odometry/filtered` receives 0 messages | QoS mismatch | Use default QoS (depth=10) not BEST_EFFORT when subscribing |
-
----
-
-## Citation
-
-```bibtex
-@misc{adhikari2025disaster,
-  author    = {Newton Adhikari},
-  title     = {Adaptive Autonomous Navigation for Disaster Response Robots
-               Using Multi-Modal Sensor Fusion and Reinforcement Learning},
-  year      = {2025},
-  publisher = {GitHub},
-  url       = {https://github.com/newton-adhikari/disaster-robot-simulator}
-}
-```
 
 ---
 
