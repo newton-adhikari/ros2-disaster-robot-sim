@@ -1,7 +1,8 @@
 import rclpy
-from rclpy.node import Node
-import time, math
+import math, time, argparse
 
+from rclpy.node import Node
+from pathlib import Path
 from nav_msgs.msg import Odometry
 from gazebo_msgs.msg import ModelStates
 
@@ -63,10 +64,38 @@ class EKFDataCollector(Node):
         
         self.groundtruth.append((time.time(), p.position.x, p.position.y, self._yaw(p.orientation)))
 
+    def compute_and_save(self, out_dir: Path):
+        pass
+
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--duration', type=float, default=300.0)
+    parser.add_argument('--output', type=str, default=str(Path.home()))
+    args = parser.parse_args()
+
+    out_dir = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     rclpy.init()
-    node = EKFDataCollector()
+    node = EKFDataCollector(duration=args.duration)
+
+    print(f'\nRecording for {args.duration:.0f}s ...')
+
+    last_print = 0
+
+    try:
+        while rclpy.ok() and not node.is_done():
+            rclpy.spin_once(node, timeout_sec=0.05)
+            elapsed = time.time() - (node.start_time or time.time())
+            if node.start_time and elapsed - last_print >= 30:
+                last_print = elapsed
+                print(f'  t={elapsed:.0f}s  raw={len(node.raw_odom)}  '
+                      f'ekf={len(node.ekf_odom)}  gt={len(node.groundtruth)}')
+    except KeyboardInterrupt:
+        print('\nCtrl+C — computing with data collected so far ...')
+
+    node.compute_and_save(out_dir)
 
     node.destroy_node()
     rclpy.shutdown()
