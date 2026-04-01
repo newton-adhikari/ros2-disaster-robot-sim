@@ -146,6 +146,13 @@ class PotentialFieldNavigator(Node):
         ax, ay = self._attractive_force()
         rx, ry = self._repulsive_force()
         return (ax + rx, ay + ry)
+    
+    # final control loop
+    def _control_step(self):
+        if self._scan is None:
+            return
+
+        now = time.time()
 
 
 def main(args=None):
