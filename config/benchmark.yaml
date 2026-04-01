@@ -39,3 +39,55 @@ world:
       rubble_piles:      12
       pillar_stumps:     7
       debris_pieces:     20
+
+sensors:
+  lidar:
+    range_max_m: 12.0
+    range_min_m: 0.25
+    angular_resolution_deg: 1.0   # [ i have used 1 for 360deg beams]
+    update_rate_hz: 10
+    noise_sigma_m: 0.01
+
+  imu:
+    update_rate_hz: 200
+    gyro_noise_sigma_rad_s: 0.0002
+    accel_noise_sigma_m_s2: 0.01
+
+  odometry:
+    update_rate_hz: 30
+    base_noise_sigma: 0.01
+    rubble_slip_sigma_m_s: 0.05       # this is added to simulate slip noise on terrain
+
+  camera:
+    resolution: [640, 480]
+    fps: 30
+    fov_deg: 80
+    noise_sigma_px: 3
+
+ekf:
+  package: robot_localization
+  mode: 2d
+  frequency_hz: 30
+
+  # odom0, is for the wheel encoder odometry
+  odom0_config:
+    x:       false    # to exclude absolute x
+    y:       false    # to exclude absolute y
+    yaw:     false    # to exclude absolute yaw from odometry
+    vx:      true     # to fuse linear velocity
+    vy:      false
+    vtheta:  true     # to fuse angular velocity
+
+  # imu0: IMU, we only fuse the heading and angular rate and nothing else
+  imu0_config:
+    roll:    false
+    pitch:   false
+    yaw:     true     # to fuse absolute heading
+    vroll:   false
+    vpitch:  false
+    vyaw:    true     # to fuse angular rate
+    ax:      false    # don't fuse linear acceleration
+    ay:      false
+    az:      false
+
+  process_noise_diagonal: [0.05, 0.05, 0.06, 0.025, 0.02]
