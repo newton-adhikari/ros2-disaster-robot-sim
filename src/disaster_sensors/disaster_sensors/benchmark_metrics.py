@@ -11,6 +11,9 @@ BUILDING_AREA_M2  = 400.0     # the interior of the world is 20m × 20m interior
 MAP_RESOLUTION    = 0.05      # SLAM Toolbox default
 FREE_THRESH       = 220       # pixel value > 220 → free  (occ prob < 0.25)
 OCCUPIED_THRESH   = 50        # pixel value < 50  → occupied
+COLLISION_RANGE_M = 0.30      # m — front-arc LiDAR < this → near-collision
+COLLISION_ARC_DEG = 25        # ±25° frontal arc
+COLLISION_MIN_DUR = 0.10      # s — minimum duration to count as event
 
 
 class BenchmarkMetrics:
@@ -124,8 +127,62 @@ class BenchmarkMetrics:
                   f"n={len(timestamps)}, T={duration:.0f}s)")
         return result
     
-    def compute_near_collision_rate(self) -> dict:
-        pass
+    def compute_near_collision_rate(self, collision_csv_path: str, trial_duration_s: float) -> dict:
+        # this method  Compute near-collision rate nu
+        rows = []
+        with open(collision_csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    rows.append((
+                        float(row['timestamp']),
+                        float(row['min_front_range_m'])
+                    ))
+                except (KeyError, ValueError):
+                    continue
+
+        if not rows:
+            return {"events": 0, "rate_per_min": 0.0,
+                    "total_below_threshold_s": 0.0}
+        
+
+        events = 0
+        in_event = False
+        event_start = 0.0
+        total_below = 0.0
+
+        for ts, r in rows:
+            if r < COLLISION_RANGE_M:
+                if not in_event:
+                    in_event = True
+                    event_start = ts
+            else:
+                if in_event:
+                    duration = ts - event_start
+                    total_below += duration
+                    if duration >= COLLISION_MIN_DUR:
+                        events += 1
+                    in_event = False
+
+        if in_event:
+            duration = rows[-1][0] - event_start
+            total_below += duration
+            if duration >= COLLISION_MIN_DUR:
+                events += 1
+
+        duration_min = trial_duration_s / 60.0
+        rate_per_min = events / duration_min if duration_min > 0 else 0.0
+
+        result = {
+            "events":                  events,
+            "rate_per_min":            round(rate_per_min, 3),
+            "total_below_threshold_s": round(total_below, 1),
+        }
+
+        if self.verbose:
+            print(f"  Near-coll: {events} events  "
+                  f"({rate_per_min:.2f}/min, {total_below:.1f}s below threshold)")
+        return result
         
 
 def main():
