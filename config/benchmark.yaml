@@ -1,0 +1,41 @@
+# This config file i have created to controls all benchmark parameters.
+
+
+benchmark:
+  version: "1.0"
+  name: "DisasterSim"
+
+world:
+  # dimensions of the building interior 
+  footprint_m: [20.0, 20.0]           # here [x, y] in metres
+  wall_thickness_m: 0.2
+  building_area_m2: 400.0             
+
+  # Robot spawn location [ i have used this in launch as well]
+  spawn_x: 0.0
+  spawn_y: -2.0
+  spawn_yaw_rad: 1.5708               
+
+  # Survivor / goal marker [ this could have been excluded]
+  goal_x: 8.0
+  goal_y: 12.0
+
+  # Obstacle level, here i have added it so that it can be configured for easy, medium, hard
+  difficulty: easy
+
+  obstacles:
+    easy:
+      collapsed_walls:   4
+      rubble_piles:      5
+      pillar_stumps:     3
+      debris_pieces:     8
+    medium:
+      collapsed_walls:   6
+      rubble_piles:      8
+      pillar_stumps:     5
+      debris_pieces:     14
+    hard:
+      collapsed_walls:   8
+      rubble_piles:      12
+      pillar_stumps:     7
+      debris_pieces:     20
