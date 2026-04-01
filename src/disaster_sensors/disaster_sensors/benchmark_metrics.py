@@ -199,7 +199,24 @@ class BenchmarkMetrics:
 
 
 def main():
-    pass
+    parser = argparse.ArgumentParser(
+        description='DisasterSim benchmark metric computation',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=""
+    )
+
+    parser.add_argument('--map', help='.pgm map file')
+    parser.add_argument('--ekf-log', help='EKF vs GT CSV file')
+    parser.add_argument('--collision-log', help='collision CSV file')
+    parser.add_argument('--duration', type=float, default=300.0, help='Trial duration in seconds (default: 300)')
+    parser.add_argument('--policy', default='unknown', help='Policy name label')
+    parser.add_argument('--trial', type=int, default=1, help='Trial number')
+    parser.add_argument('--output', help='Output JSON path')
+    parser.add_argument('--coverage-only', action='store_true', help='Compute coverage only (no CSV logs needed)')
+    parser.add_argument('--aggregate-dir', help='Aggregate all JSON files in dir')
+
+    
+
 
 if __name__ == '__main__':
     main()
