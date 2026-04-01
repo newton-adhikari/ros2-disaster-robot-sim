@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import argparse
-import PIL.Image
-import csv
+import sys, csv, json, os, argparse
+
+from pathlib import Path
+from typing import Optional
 
 
 # defined constants
@@ -215,7 +216,55 @@ def main():
     parser.add_argument('--coverage-only', action='store_true', help='Compute coverage only (no CSV logs needed)')
     parser.add_argument('--aggregate-dir', help='Aggregate all JSON files in dir')
 
+    args = parser.parse_args()
+    bm = BenchmarkMetrics(verbose=True)
+
+    if args.aggregate_dir:
+        import glob
+        jsons = glob.glob(os.path.join(args.aggregate_dir, '*.json'))
+        if not jsons:
+            print(f"No JSON files found in {args.aggregate_dir}")
+            sys.exit(1)
+        reports = [json.load(open(j)) for j in sorted(jsons)]
+        agg = bm.aggregate_trials(reports)
+        print(f"\nAggregated {agg['n_trials']} trials for policy: {agg['policy']}")
+        print(f"  Coverage:  {agg['coverage_pct']['mean']:.1f} ± {agg['coverage_pct']['std']:.1f} %")
+        print(f"  RMSE:      {agg['rmse_m']['mean']:.3f} ± {agg['rmse_m']['std']:.3f} m")
+        print(f"  Near-coll: {agg['near_collision_per_min']['mean']:.2f} ± {agg['near_collision_per_min']['std']:.2f} /min")
+        print(f"  Efficiency:{agg['efficiency_pct_per_min']['mean']:.3f} ± {agg['efficiency_pct_per_min']['std']:.3f} %/min")
+        
+        if args.output:
+            with open(args.output, 'w') as f:
+                json.dump(agg, f, indent=2)
+        return
     
+    if args.coverage_only:
+        if not args.map:
+            print("--map required with --coverage-only")
+            sys.exit(1)
+        result = bm.compute_coverage(args.map)
+        print(f"Coverage: {result['coverage_pct']:.1f}%")
+        return
+    
+    # create full report
+    if not all([args.map, args.ekf_log, args.collision_log]):
+        print("ERROR: --map, --ekf-log, and --collision-log are all required "
+              "for a full report.\nUse --coverage-only for coverage only.")
+        sys.exit(1)
+
+    output_json = args.output or (
+        f"benchmark_{args.policy}_trial{args.trial}.json"
+    )
+
+    bm.full_report(
+        map_path=args.map,
+        ekf_csv_path=args.ekf_log,
+        collision_csv_path=args.collision_log,
+        trial_duration_s=args.duration,
+        policy_name=args.policy,
+        trial_id=args.trial,
+        output_json=output_json,
+    )
 
 
 if __name__ == '__main__':
