@@ -23,7 +23,15 @@ import time
 
 class PotentialFieldNavigator(Node):
     
+    K_ATT       = 1.0     # attractive gain
+    K_REP       = 0.5     # repulsive gain
+    D_REP       = 1.5     # repulsive influence radius (m)
+    D_SAFE      = 0.35    # hard stop distance (m)
+    VEL_MAX     = 0.18    # m/s
+    OMEGA_MAX   = 1.2     # rad/s
     STALL_VEL   = 0.02    # m/s — below this = stall
+    STALL_TIME  = 5.0     # s — random perturbation after this
+    PERTURB_DUR = 2.5     # s — duration of perturbation
     UPDATE_HZ   = 10.0
 
     def __init__(self):
