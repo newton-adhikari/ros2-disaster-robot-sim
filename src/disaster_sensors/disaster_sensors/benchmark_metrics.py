@@ -197,6 +197,82 @@ class BenchmarkMetrics:
         if self.verbose:
             print(f"  Efficiency:{eta:.3f} %/min")
         return result
+    
+    def full_report(
+        self,
+        map_path:         str,
+        ekf_csv_path:     str,
+        collision_csv_path: str,
+        trial_duration_s: float,
+        policy_name:      str = "unknown",
+        trial_id:         int = 1,
+        output_json:      Optional[str] = None,
+    ) -> dict:
+        
+        if self.verbose:
+            print(f"\n{'='*55}")
+            print(f"  DisasterSim Benchmark Metrics v{self.BENCHMARK_VERSION}")
+            print(f"  Policy: {policy_name}  |  Trial: {trial_id}")
+            print(f"{'='*55}")
+
+        cov  = self.compute_coverage(map_path)
+        ekf  = self.compute_localisation_rmse(ekf_csv_path)
+        coll = self.compute_near_collision_rate(collision_csv_path,
+                                                trial_duration_s)
+        eff  = self.compute_efficiency(cov['coverage_pct'], trial_duration_s)
+
+        report = {
+            "benchmark_version": self.BENCHMARK_VERSION,
+            "policy":            policy_name,
+            "trial":             trial_id,
+            "duration_s":        trial_duration_s,
+            "coverage":          cov,
+            "localisation":      ekf,
+            "near_collision":    coll,
+            "efficiency":        eff,
+        }
+
+        if self.verbose:
+            print(f"\n  Summary:")
+            print(f"    C   = {cov['coverage_pct']:.1f}%")
+            print(f"    rho = {ekf['rmse_m']:.3f} m")
+            print(f"    nu  = {coll['rate_per_min']:.2f} events/min")
+            print(f"    eta = {eff['efficiency_pct_per_min']:.3f} %/min")
+            print(f"{'='*55}")
+
+        if output_json:
+            with open(output_json, 'w') as f:
+                json.dump(report, f, indent=2)
+            if self.verbose:
+                print(f"  Saved: {output_json}")
+
+        return report
+    
+    @staticmethod
+    def aggregate_trials(trial_reports: list[dict]) -> dict:
+        coverages   = [r['coverage']['coverage_pct'] for r in trial_reports]
+        rmses       = [r['localisation']['rmse_m']   for r in trial_reports]
+        coll_rates  = [r['near_collision']['rate_per_min'] for r in trial_reports]
+        efficiencies= [r['efficiency']['efficiency_pct_per_min'] for r in trial_reports]
+
+        def stats(vals):
+            return {
+                "mean": round(float(np.mean(vals)), 3),
+                "std":  round(float(np.std(vals, ddof=1)), 3) if len(vals) > 1 else 0.0,
+                "min":  round(float(np.min(vals)),  3),
+                "max":  round(float(np.max(vals)),  3),
+                "n":    len(vals),
+                "values": [round(v, 3) for v in vals],
+            }
+
+        return {
+            "policy":       trial_reports[0].get("policy", "unknown"),
+            "n_trials":     len(trial_reports),
+            "coverage_pct": stats(coverages),
+            "rmse_m":       stats(rmses),
+            "near_collision_per_min": stats(coll_rates),
+            "efficiency_pct_per_min": stats(efficiencies),
+        }
 
 
 def main():
