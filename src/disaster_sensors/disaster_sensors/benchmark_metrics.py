@@ -184,6 +184,19 @@ class BenchmarkMetrics:
                   f"({rate_per_min:.2f}/min, {total_below:.1f}s below threshold)")
         return result
         
+    def compute_efficiency(self, coverage_pct: float, duration_s:   float) -> dict:
+        # with this method
+        # we try to compute exploration efficiency eta
+        # with this simple formula
+        # eta = C / T_minutes
+
+        duration_min = duration_s / 60.0
+        eta = coverage_pct / duration_min if duration_min > 0 else 0.0
+        result = {"efficiency_pct_per_min": round(eta, 4)}
+        if self.verbose:
+            print(f"  Efficiency:{eta:.3f} %/min")
+        return result
+
 
 def main():
     pass
