@@ -27,15 +27,28 @@ class BenchmarkMetrics:
 
     @staticmethod
     def _read_pgm_fallback(path: str) -> np.ndarray:
-        pass
+        # this method is supposed to Read PGM without PIL
+        # but this handles p5 binary format only
+        with open(path, 'rb') as f:
+            header = []
+            while len(header) < 3:
+                line = f.readline().decode('ascii').strip()
+                if not line.startswith('#'):
+                    header.extend(line.split())
+            assert header[0] == 'P5', "Only binary PGM (P5) supported"
+            width, height = int(header[1]), int(header[2])
+            maxval = int(header[3]) if len(header) > 3 else int(
+                f.readline().decode('ascii').strip())
+            data = np.frombuffer(f.read(), dtype=np.uint8
+                                 if maxval < 256 else np.uint16)
+        return data.reshape(height, width).astype(np.float32)
 
     def compute_coverage(self, pgm_path: str) -> dict:
         # this computes the coverage of exploration from pgm of the grid
         try:
             img = np.array(PIL.Image.open(pgm_path).convert('L'))
         except Exception:
-            # img = self._read_pgm_fallback(pgm_path)
-            pass
+            img = self._read_pgm_fallback(pgm_path)
 
         free_mask     = img > FREE_THRESH
         occupied_mask = img < OCCUPIED_THRESH
