@@ -123,6 +123,10 @@ class BenchmarkMetrics:
             print(f"  RMSE:      {rmse:.3f} m  (max {max_error:.3f} m, "
                   f"n={len(timestamps)}, T={duration:.0f}s)")
         return result
+    
+    def compute_near_collision_rate(self) -> dict:
+        pass
+        
 
 def main():
     pass
