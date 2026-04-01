@@ -77,7 +77,11 @@ class BenchmarkMetrics:
             print(f"  Coverage:  {coverage_pct:.1f}%  "
                   f"({free_cells} free cells, {free_area_m2:.1f} m²)")
         return result
-
+    
+    
+    def compute_localisation_rmse(self, ekf_csv_path: str) -> dict:
+        # this method Computes localisation RMSE rho (m) from EKF log CSV
+        pass
 
 def main():
     pass
