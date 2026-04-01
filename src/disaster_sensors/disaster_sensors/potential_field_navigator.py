@@ -153,6 +153,76 @@ class PotentialFieldNavigator(Node):
             return
 
         now = time.time()
+        # Local minima escape
+        stuck_for = now - self._last_nonzero_vel
+        if not self._perturbing and stuck_for > self.STALL_TIME:
+            self.get_logger().warn('Local minimum detected — perturbing.')
+            self._perturbing = True
+            self._perturb_end = now + self.PERTURB_DUR
+            self._perturb_dir = np.random.choice([-1.0, 1.0])
+
+        if self._perturbing:
+            if now < self._perturb_end:
+                cmd = Twist()
+                cmd.angular.z = self._perturb_dir * self.OMEGA_MAX * 0.7
+                cmd.linear.x  = 0.05
+                self._cmd_pub.publish(cmd)
+                return
+            else:
+                self._perturbing = False
+                self._last_nonzero_vel = now
+
+        # Emergency brake
+        front_dist = self._front_min_range()
+        if front_dist < self.D_SAFE:
+            cmd = Twist()
+            cmd.linear.x  = -0.05
+            cmd.angular.z = np.random.choice([-1.0, 1.0]) * self.OMEGA_MAX
+            self._cmd_pub.publish(cmd)
+            return
+
+        # Compute potential field velocity
+        fx, fy = self._total_force()
+        f_magnitude = math.hypot(fx, fy)
+
+        if f_magnitude < 1e-4:
+            # Zero resultant — perturb
+            self._last_nonzero_vel = 0.0
+            return
+
+        # Desired heading from force vector
+        desired_yaw = math.atan2(fy, fx)
+        yaw_err = desired_yaw - self._robot_yaw
+        while yaw_err >  math.pi: yaw_err -= 2*math.pi
+        while yaw_err < -math.pi: yaw_err += 2*math.pi
+
+        # P-controller
+        omega = min(self.OMEGA_MAX, max(-self.OMEGA_MAX, 1.5 * yaw_err))
+
+        # Reduce speed when turning sharply
+        speed = self.VEL_MAX * max(0.0, 1.0 - abs(yaw_err) / math.pi)
+        speed = min(speed, self.VEL_MAX * min(1.0, front_dist / 0.8))
+
+        cmd = Twist()
+        cmd.linear.x  = speed
+        cmd.angular.z = omega
+        self._cmd_pub.publish(cmd)
+
+    def _front_min_range(self) -> float:
+        # Minimum range in the frontal ±30° arc.
+        if self._scan is None:
+            return float('inf')
+        scan = self._scan
+        N = len(scan.ranges)
+        half_angle = math.radians(30)
+        front_min = float('inf')
+        for i, r in enumerate(scan.ranges):
+            if math.isnan(r) or math.isinf(r):
+                continue
+            angle = scan.angle_min + i * scan.angle_increment
+            if abs(angle) <= half_angle:
+                front_min = min(front_min, r)
+        return front_min
 
 
 def main(args=None):
