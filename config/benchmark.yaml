@@ -1,0 +1,153 @@
+# This config file i have created to controls all benchmark parameters.
+
+benchmark:
+  version: "1.0"
+  name: "DisasterSim"
+
+world:
+  # dimensions of the building interior 
+  footprint_m: [20.0, 20.0]           # here [x, y] in metres
+  wall_thickness_m: 0.2
+  building_area_m2: 400.0             
+
+  # Robot spawn location [ i have used this in launch as well]
+  spawn_x: 0.0
+  spawn_y: -2.0
+  spawn_yaw_rad: 1.5708               
+
+  # Survivor / goal marker [ this could have been excluded]
+  goal_x: 8.0
+  goal_y: 12.0
+
+  # Obstacle level, here i have added it so that it can be configured for easy, medium, hard
+  difficulty: easy
+
+  obstacles:
+    easy:
+      collapsed_walls:   4
+      rubble_piles:      5
+      pillar_stumps:     3
+      debris_pieces:     8
+    medium:
+      collapsed_walls:   6
+      rubble_piles:      8
+      pillar_stumps:     5
+      debris_pieces:     14
+    hard:
+      collapsed_walls:   8
+      rubble_piles:      12
+      pillar_stumps:     7
+      debris_pieces:     20
+
+sensors:
+  lidar:
+    range_max_m: 12.0
+    range_min_m: 0.25
+    angular_resolution_deg: 1.0   # [ i have used 1 for 360deg beams]
+    update_rate_hz: 10
+    noise_sigma_m: 0.01
+
+  imu:
+    update_rate_hz: 200
+    gyro_noise_sigma_rad_s: 0.0002
+    accel_noise_sigma_m_s2: 0.01
+
+  odometry:
+    update_rate_hz: 30
+    base_noise_sigma: 0.01
+    rubble_slip_sigma_m_s: 0.05       # this is added to simulate slip noise on terrain
+
+  camera:
+    resolution: [640, 480]
+    fps: 30
+    fov_deg: 80
+    noise_sigma_px: 3
+
+ekf:
+  package: robot_localization
+  mode: 2d
+  frequency_hz: 30
+
+  # odom0, is for the wheel encoder odometry
+  odom0_config:
+    x:       false    # to exclude absolute x
+    y:       false    # to exclude absolute y
+    yaw:     false    # to exclude absolute yaw from odometry
+    vx:      true     # to fuse linear velocity
+    vy:      false
+    vtheta:  true     # to fuse angular velocity
+
+  # imu0: IMU, we only fuse the heading and angular rate and nothing else
+  imu0_config:
+    roll:    false
+    pitch:   false
+    yaw:     true     # to fuse absolute heading
+    vroll:   false
+    vpitch:  false
+    vyaw:    true     # to fuse angular rate
+    ax:      false    # don't fuse linear acceleration
+    ay:      false
+    az:      false
+
+  process_noise_diagonal: [0.05, 0.05, 0.06, 0.025, 0.02]
+
+slam:
+  package: slam_toolbox
+  mode: async
+  map_resolution_m_per_px: 0.05
+  map_update_interval_s: 1.0
+
+evaluation:
+  trial_duration_s: 300          
+  n_trials: 3                    
+  random_seed: 42                # make sure to change accordingly, for reproducibility
+
+  # Coverage metric [note: remove this later]
+  free_pixel_threshold: 220      # pixel value > this → free cell
+  occupied_pixel_threshold: 50   # pixel value < this → occupied
+  near_collision_range_m: 0.30   # LiDAR front-arc threshold
+  near_collision_arc_deg: 25     # ±degrees from front
+  near_collision_min_duration_s: 0.10  # minimum event duration
+
+baselines:
+  B1_random_walk:
+    node: disaster_sensors/random_walk.py
+    description: "Forward + random rotation on obstacle detection"
+    requires_map: false
+    requires_nav2: false
+
+  B2_reactive_fsm:
+    node: disaster_sensors/rl_navigator.py
+    description: "4-state FSM with physical-angle LiDAR sectors"
+    requires_map: false
+    requires_nav2: false
+    params:
+      obstacle_threshold_m: 0.40
+      front_sector_half_deg: 25
+      periodic_direction_change_s: 45
+      linear_speed_m_s: 0.18
+      angular_speed_rad_s: 1.2
+
+  B3_frontier:
+    node: disaster_sensors/frontier_explorer.py
+    description: "Yamauchi 1997 frontier exploration with Nav2"
+    requires_map: true
+    requires_nav2: true
+    params:
+      min_frontier_cells: 5
+      goal_timeout_s: 30
+      stuck_time_s: 10
+      update_hz: 2.0
+
+  B4_potential_field:
+    node: disaster_sensors/potential_field_navigator.py
+    description: "Attractive/repulsive potential field with stall escape"
+    requires_map: true
+    requires_nav2: false
+    params:
+      k_att: 1.0
+      k_rep: 0.5
+      d_rep_m: 1.5
+      d_safe_m: 0.35
+      stall_time_s: 5.0
+      perturb_duration_s: 2.5
