@@ -111,6 +111,48 @@ class FrontierExplorer(Node):
             self._goal_handle = None
         self._navigating = False
 
+    def _goal_response_cb(self, future):
+        handle = future.result()
+
+        if not handle.accepted:
+            self.get_logger().warn('Goal rejected by Nav2.')
+            self._navigating = False
+            return
+        
+        self._goal_handle = handle
+        result_future = handle.get_result_async()
+        result_future.add_done_callback(self._goal_result_cb)
+
+    def _goal_result_cb(self, future):
+        status = future.result().status
+
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info('Frontier reached.')
+        else:
+            self.get_logger().info(f'Goal ended with status: {status}')
+        
+        self._navigating = False
+        self._goal_handle = None
+
+    def _fallback_to_goal(self, x: float, y: float):
+        # Simple P-controller toward goal (used when Nav2 unavailable)
+        dx = x - self._robot_x
+        dy = y - self._robot_y
+        dist = math.hypot(dx, dy)
+        angle_to_goal = math.atan2(dy, dx)
+        angle_err = angle_to_goal - self._robot_heading
+        # wrap to [-pi, pi]
+        while angle_err > math.pi:  angle_err -= 2*math.pi
+        while angle_err < -math.pi: angle_err += 2*math.pi
+
+        cmd = Twist()
+        if abs(angle_err) > 0.3:
+            cmd.angular.z = 0.8 * np.sign(angle_err)
+        else:
+            cmd.linear.x  = min(0.15, 0.5 * dist)
+            cmd.angular.z = 0.5 * angle_err
+        self._cmd_pub.publish(cmd)
+
     def _detect_frontiers(self, grid: np.ndarray) -> list[tuple[float, float]]:
         
         # Returns list of (x_world, y_world) frontier centroids.
@@ -162,6 +204,34 @@ class FrontierExplorer(Node):
         best = min(range(len(dists)), key=lambda i: dists[i])
         return centroids[best]
     
+    def _spin_in_place(self):
+        # Rotate to trigger SLAM updates. if there are no frontiers visible.
+        cmd = Twist()
+        cmd.angular.z = 0.5
+        self._cmd_pub.publish(cmd)
+
+    def _send_nav_goal(self, x: float, y: float, yaw: float = 0.0):
+        # Send a NavigateToPose goal to Nav2.
+
+        if not self._nav_client.wait_for_server(timeout_sec=2.0):
+            self.get_logger().warn('Nav2 not available use direct cmd_vel.')
+            self._fallback_to_goal(x, y)
+            return
+
+        goal = NavigateToPose.Goal()
+        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.header.frame_id = 'map'
+        goal.pose.pose.position.x = x
+        goal.pose.pose.position.y = y
+        goal.pose.pose.orientation.w = math.cos(yaw / 2)
+        goal.pose.pose.orientation.z = math.sin(yaw / 2)
+
+        send_future = self._nav_client.send_goal_async(goal)
+        send_future.add_done_callback(self._goal_response_cb)
+        self._goal_sent_time = time.time()
+        self._navigating = True
+        self.get_logger().info(f'Frontier goal: ({x:.2f}, {y:.2f})')
+    
     def _explore_step(self):
         # map has to be present
         if self._map is None:
@@ -191,6 +261,34 @@ class FrontierExplorer(Node):
             self.get_logger().info('No frontiers detected — exploration complete or map not ready.')
             self._spin_in_place()
             return
+        
+        best = self._nearest_frontier(centroids)
+        if best is None:
+            return
+        
+        x_goal, y_goal, cluster_size = best
+        dist = math.hypot(x_goal - self._robot_x, y_goal - self._robot_y)
+
+        if dist < self.GOAL_RADIUS:
+            self.get_logger().info('Already at frontier. select next...')
+            # select second nearest
+            sorted_c = sorted(centroids,
+                key=lambda c: math.hypot(c[0]-self._robot_x, c[1]-self._robot_y))
+            if len(sorted_c) > 1:
+                x_goal, y_goal, cluster_size = sorted_c[1]
+            else:
+                self._spin_in_place()
+                return
+            
+        # go toward frontier
+        yaw = math.atan2(y_goal - self._robot_y, x_goal - self._robot_x)
+        self._send_nav_goal(x_goal, y_goal, yaw)
+
+        self.get_logger().info(
+            f'Frontiers: {len(centroids)} | Selected: ({x_goal:.1f}, {y_goal:.1f}) '
+            f'size={cluster_size} dist={dist:.1f}m'
+        )
+        
 
 def main(args=None):
     rclpy.init(args=args)
