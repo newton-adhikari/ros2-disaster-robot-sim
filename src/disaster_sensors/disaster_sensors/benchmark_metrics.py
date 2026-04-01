@@ -3,6 +3,8 @@
 import numpy as np
 import argparse
 import PIL.Image
+import csv
+
 
 # defined constants
 BUILDING_AREA_M2  = 400.0     # the interior of the world is 20m × 20m interior
@@ -81,7 +83,46 @@ class BenchmarkMetrics:
     
     def compute_localisation_rmse(self, ekf_csv_path: str) -> dict:
         # this method Computes localisation RMSE rho (m) from EKF log CSV
-        pass
+        # this expectes a csv precomputed
+        
+        timestamps, ekf_xs, ekf_ys, gt_xs, gt_ys = [], [], [], [], []
+
+        with open(ekf_csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    timestamps.append(float(row['timestamp']))
+                    ekf_xs.append(float(row['ekf_x']))
+                    ekf_ys.append(float(row['ekf_y']))
+                    gt_xs.append(float(row['gt_x']))
+                    gt_ys.append(float(row['gt_y']))
+                except (KeyError, ValueError):
+                    continue
+
+        if len(timestamps) < 2:
+            raise ValueError(f"Insufficient data in {ekf_csv_path}: "
+                             f"only {len(timestamps)} rows")
+        
+        ekf_x = np.array(ekf_xs)
+        ekf_y = np.array(ekf_ys)
+        gt_x  = np.array(gt_xs)
+        gt_y  = np.array(gt_ys)
+
+        sq_errors = (ekf_x - gt_x)**2 + (ekf_y - gt_y)**2
+        rmse      = float(np.sqrt(np.mean(sq_errors)))
+        max_error = float(np.sqrt(np.max(sq_errors)))
+        duration  = float(timestamps[-1] - timestamps[0])
+
+        result = {
+            "rmse_m":      round(rmse, 4),
+            "max_error_m": round(max_error, 4),
+            "n_samples":   len(timestamps),
+            "duration_s":  round(duration, 1),
+        }
+        if self.verbose:
+            print(f"  RMSE:      {rmse:.3f} m  (max {max_error:.3f} m, "
+                  f"n={len(timestamps)}, T={duration:.0f}s)")
+        return result
 
 def main():
     pass
