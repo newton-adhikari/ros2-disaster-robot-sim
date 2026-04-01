@@ -1,6 +1,5 @@
 # This config file i have created to controls all benchmark parameters.
 
-
 benchmark:
   version: "1.0"
   name: "DisasterSim"
@@ -91,3 +90,64 @@ ekf:
     az:      false
 
   process_noise_diagonal: [0.05, 0.05, 0.06, 0.025, 0.02]
+
+slam:
+  package: slam_toolbox
+  mode: async
+  map_resolution_m_per_px: 0.05
+  map_update_interval_s: 1.0
+
+evaluation:
+  trial_duration_s: 300          
+  n_trials: 3                    
+  random_seed: 42                # make sure to change accordingly, for reproducibility
+
+  # Coverage metric [note: remove this later]
+  free_pixel_threshold: 220      # pixel value > this → free cell
+  occupied_pixel_threshold: 50   # pixel value < this → occupied
+  near_collision_range_m: 0.30   # LiDAR front-arc threshold
+  near_collision_arc_deg: 25     # ±degrees from front
+  near_collision_min_duration_s: 0.10  # minimum event duration
+
+baselines:
+  B1_random_walk:
+    node: disaster_sensors/random_walk.py
+    description: "Forward + random rotation on obstacle detection"
+    requires_map: false
+    requires_nav2: false
+
+  B2_reactive_fsm:
+    node: disaster_sensors/rl_navigator.py
+    description: "4-state FSM with physical-angle LiDAR sectors"
+    requires_map: false
+    requires_nav2: false
+    params:
+      obstacle_threshold_m: 0.40
+      front_sector_half_deg: 25
+      periodic_direction_change_s: 45
+      linear_speed_m_s: 0.18
+      angular_speed_rad_s: 1.2
+
+  B3_frontier:
+    node: disaster_sensors/frontier_explorer.py
+    description: "Yamauchi 1997 frontier exploration with Nav2"
+    requires_map: true
+    requires_nav2: true
+    params:
+      min_frontier_cells: 5
+      goal_timeout_s: 30
+      stuck_time_s: 10
+      update_hz: 2.0
+
+  B4_potential_field:
+    node: disaster_sensors/potential_field_navigator.py
+    description: "Attractive/repulsive potential field with stall escape"
+    requires_map: true
+    requires_nav2: false
+    params:
+      k_att: 1.0
+      k_rep: 0.5
+      d_rep_m: 1.5
+      d_safe_m: 0.35
+      stall_time_s: 5.0
+      perturb_duration_s: 2.5
