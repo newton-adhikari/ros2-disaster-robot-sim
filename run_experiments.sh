@@ -270,3 +270,75 @@ fi
 sep
 log "ALL TRIALS COMPLETE"
 sep
+
+
+# ── Generate aggregate report ─────────────────────────────────────────────────
+python3 - "$RUN_DIR" \
+    "${FRONTIER_COV[@]:-}" "---" \
+    "${POTFIELD_COV[@]:-}" "---" \
+    "${REACTIVE_COV[@]:-}" "---" \
+    "${RL_COV[@]:-}" <<'PYEOF'
+import sys, os, json
+import numpy as np
+from scipy import stats as sp_stats
+
+run_dir = sys.argv[1]
+args = sys.argv[2:]
+
+groups, current = [], []
+for a in args:
+    if a == "---":
+        groups.append(current); current = []
+    elif a and a != "N/A":
+        current.append(float(a))
+groups.append(current)
+
+names = ["Frontier Explorer", "Potential Field", "Reactive FSM", "RL Navigator"]
+
+def row(name, vals):
+    if not vals:
+        return f"  {name:<22} NO DATA"
+    a = np.array(vals)
+    m, s = a.mean(), a.std(ddof=1) if len(a) > 1 else 0.0
+    ci = 1.96 * s / np.sqrt(len(a)) if len(a) > 1 else 0.0
+    return (f"  {name:<22} n={len(a):2d}  mean={m:5.1f}%  "
+            f"std={s:4.1f}%  95%CI=[{m-ci:.1f}, {m+ci:.1f}]")
+
+print()
+print("╔══════════════════════════════════════════════════════════════════════╗")
+print("║               DisasterSim Results Summary                      ║")
+print("╠══════════════════════════════════════════════════════════════════════╣")
+for name, vals in zip(names, groups):
+    print(row(name, vals))
+
+print("╠══════════════════════════════════════════════════════════════════════╣")
+print("  Pairwise Mann-Whitney U tests (coverage):")
+for i in range(len(groups)):
+    for j in range(i+1, len(groups)):
+        if len(groups[i]) >= 3 and len(groups[j]) >= 3:
+            u_stat, p_val = sp_stats.mannwhitneyu(
+                groups[i], groups[j], alternative='two-sided')
+            sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "ns"
+            print(f"    {names[i]:20s} vs {names[j]:20s}: U={u_stat:.0f} p={p_val:.4f} {sig}")
+
+print("╚══════════════════════════════════════════════════════════════════════╝")
+
+aggregate = {}
+for name, vals in zip(names, groups):
+    if vals:
+        a = np.array(vals)
+        aggregate[name] = {
+            "n": len(vals), "mean": round(float(a.mean()), 2),
+            "std": round(float(a.std(ddof=1)), 2) if len(a) > 1 else 0.0,
+            "min": round(float(a.min()), 2), "max": round(float(a.max()), 2),
+            "values": [round(v, 2) for v in vals],
+        }
+
+agg_path = os.path.join(run_dir, "aggregate_results.json")
+with open(agg_path, 'w') as f:
+    json.dump(aggregate, f, indent=2)
+print(f"\n  Aggregate JSON: {agg_path}\n")
+PYEOF
+
+log "Done. All results saved to $RUN_DIR"
+log "Log file: $LOG"
