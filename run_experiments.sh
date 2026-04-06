@@ -11,7 +11,7 @@ echo ""
 
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RESULTS="$HOME/disaster_results"
+RESULTS="$HOME/disaster-lab/disaster_results"
 TRIAL_DURATION=300
 SIM_WARMUP=100
 N_TRIALS=10
