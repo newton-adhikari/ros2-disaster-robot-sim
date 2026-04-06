@@ -8,3 +8,6 @@ __pycache__/
 bags/
 .vscode/
 *.swp
+runs/
+tensorboard_logs/
+events.out.tfevents*
