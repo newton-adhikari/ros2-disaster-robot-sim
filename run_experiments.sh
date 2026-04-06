@@ -19,4 +19,4 @@ KILL_SETTLE=8
 GZ_PORT=11345
 PORT_WAIT_MAX=30
 
-RL_MODEL_PATH="$REPO/disaster_rl_trainer/scripts/models/disaster_ppo_v2_final.pt"
+RL_MODEL_PATH="$REPO/disaster_rl_trainer/scripts/models/disaster_ppo_v2_final.zip"
