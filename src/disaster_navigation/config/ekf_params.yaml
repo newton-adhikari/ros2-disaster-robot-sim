@@ -1,17 +1,18 @@
 ekf_filter_node:
   ros__parameters:
     frequency: 30.0          
-    sensor_timeout: 0.1      
+    sensor_timeout: 0.5      
     two_d_mode: true         # this is because robot stays on ground plane (z=0)
+    use_sim_time: true
     transform_time_offset: 0.0
-    transform_timeout: 0.0
+    transform_timeout: 0.5
 
     map_frame: map
     odom_frame: odom
     base_link_frame: base_footprint
     world_frame: odom         # Used odom for now (need to switch to map for AMCL)
 
-    publish_tf: true
+    publish_tf: false
     publish_acceleration: false
     print_diagnostics: true
 

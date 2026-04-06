@@ -99,7 +99,7 @@ slam:
 
 evaluation:
   trial_duration_s: 300          
-  n_trials: 3                    
+  n_trials: 10                   # per ploicy we have 10 trials                    
   random_seed: 42                # make sure to change accordingly, for reproducibility
 
   # Coverage metric [note: remove this later]

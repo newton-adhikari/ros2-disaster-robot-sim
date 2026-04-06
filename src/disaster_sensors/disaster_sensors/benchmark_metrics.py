@@ -3,6 +3,7 @@
 import numpy as np
 import sys, csv, json, os, argparse
 
+import PIL.Image
 from pathlib import Path
 from typing import Optional
 
