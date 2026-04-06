@@ -57,8 +57,9 @@ slam_toolbox:
     use_response_expansion: true
 
     transform_publish_period: 0.02          # 50 Hz transform used for publish period [taken from slam toolbox]
-    tf_buffer_duration: 30.0
+    tf_buffer_duration: 60.0
+    transform_tolerance: 2.0
 
     throttle_scans: 1                       
-    transform_timeout: 0.05
+    transform_timeout: 1.0
     use_sim_time: true

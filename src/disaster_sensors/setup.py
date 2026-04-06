@@ -26,9 +26,16 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-
+            'lidar_processor  = disaster_sensors.lidar_processor:main',
+            'camera_processor = disaster_sensors.camera_processor:main',
+            'ekf_monitor      = disaster_sensors.ekf_monitor:main',
+            'collect_ekf_data = disaster_sensors.collect_ekf_data:main',
+            'rl_navigator     = disaster_sensors.rl_navigator:main',
+            'frontier_explorer = disaster_sensors.frontier_explorer:main',
+            'potential_field_navigator = disaster_sensors.potential_field_navigator:main',
+            'benchmark_metrics = disaster_sensors.benchmark_metrics:main',
+            'measure_coverage = disaster_sensors.measure_coverage:main',
+            'auto_map_saver  = disaster_sensors.auto_map_saver:main',
         ],
     },
-    # Python dependencies (install with pip install -r requirements.txt)
-    # ultralytics, opencv-python-headless, numpy
 )
