@@ -11,6 +11,7 @@ from sensor_msgs.msg import LaserScan
 
 SPAWN_X, SPAWN_Y = 0.0, -2.0
 GOAL_X,  GOAL_Y  = 8.0, 12.0
+MAX_GOAL_DIST    = 20.0       # normalisation constant for distance obs
 MAX_STEPS        = 2000   
 GOAL_RADIUS      = 0.5
 COLLISION_DIST   = 0.28
@@ -107,7 +108,7 @@ class DisasterNavEnv(gym.Env):
         bearing = self._goal_bearing()
         return np.array([
             *sectors / LIDAR_MAX,
-            1.0 / (1.0 + dist),
+            np.clip(1.0 - dist / MAX_GOAL_DIST, -1.0, 1.0),
             bearing / math.pi,
             vx   / MAX_LIN,
             vyaw / MAX_ANG,
@@ -153,39 +154,50 @@ class DisasterNavEnv(gym.Env):
         dist     = self._goal_dist()
         min_lidar= float(np.min(self.sectors))
 
-        reward = 0.0
+        bearing = self._goal_bearing()  # radians, 0 = facing goal
 
+        # 1. Heading alignment — to teach the bot "face the goal"
+        #    cos(bearing)=1.0 when facing goal, -1.0 when facing away
+        alignment = math.cos(bearing)
+        reward += alignment * 1.0   # +1.0/step facing goal, -1.0 facing away
+
+        # 2. Progress reward — moving closer to goal
         progress = self.prev_dist - dist
-        reward  += progress * 40.0
+        reward  += progress * 80.0   # was 40 — doubled
 
+        # 3. Forward-toward-goal bonus — only reward forward motion when aligned
+        if self.vx > 0.04 and alignment > 0.5:
+            reward += 0.5
+
+        # 4. Best-ever distance bonus
         if dist < self.best_dist - 0.1:
             reward += (self.best_dist - dist) * 20.0
             self.best_dist = dist
 
+        # 5. Goal reached
         goal_reached = dist < GOAL_RADIUS
         if goal_reached:
             reward += 500.0
 
-        # Collision 
+        # 6. Collision
         is_collision = min_lidar < COLLISION_DIST and self.collision_cooldown == 0
         if is_collision:
             reward -= 30.0
-            self.collision_cooldown = 20    # safe for 20 steps
+            self.collision_cooldown = 20
 
+        # 7. Coverage novelty — reduced, exploration is secondary to goal-seeking
         cx = round(self.robot_x * 2) / 2
         cy = round(self.robot_y * 2) / 2
         key = (cx, cy)
         if key not in self.visited_cells:
             self.visited_cells.add(key)
-            reward += 5.0    
-
-        if abs(self.vx) > 0.04:
-            reward += 0.3
+            reward += 1.0    # was 5.0 — reduced so it doesn't dominate
 
         if dist < 5.0:
             reward += (5.0 - dist) * 2.0
 
-        reward -= 0.01   # was -0.1 — 10× smaller
+        # Time penalty 
+        reward -= 0.01
 
         terminated = goal_reached
         truncated  = self.step_count >= MAX_STEPS
