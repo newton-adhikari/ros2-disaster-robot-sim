@@ -114,3 +114,159 @@ kill_sim() {
 # Everything runs inside ros2 launch — no separate ros2 run calls.
 SIM_PID=""
 LAST_COVERAGE="N/A"
+
+
+run_trial() {
+    local nav_policy="$1"   # frontier_explorer | potential_field_navigator | rl_navigator | rl_navigator_model
+    local label="$2"
+    local policy_name="$3"
+    local trial_num="$4"
+
+    sep
+    log "Starting trial: $nav_policy → $label"
+    sep
+
+    local ekf_csv="$RUN_DIR/${label}_ekf.csv"
+    local coll_csv="$RUN_DIR/${label}_collisions.csv"
+
+    log "Launching simulation + policy (headless)..."
+    ros2 launch disaster_navigation full_simulation.launch.py \
+        use_rviz:=false gui:=false \
+        map_output_dir:="$RUN_DIR" \
+        map_output_prefix:="$label" \
+        nav_policy:="$nav_policy" \
+        rl_model_path:="$RL_MODEL_PATH" \
+        launch_ekf_monitor:=true \
+        ekf_csv:="$ekf_csv" \
+        collision_csv:="$coll_csv" \
+        >> "$LOG" 2>&1 &
+    SIM_PID=$!
+    log "Simulation PID=$SIM_PID"
+
+    # Wait: warmup + trial duration
+    local total_wait=$((SIM_WARMUP + TRIAL_DURATION))
+    log "Waiting ${SIM_WARMUP}s warmup + ${TRIAL_DURATION}s trial = ${total_wait}s..."
+    sleep "$total_wait"
+    log "Trial time complete."
+
+    # Check map
+    local map_path="$RUN_DIR/$label"
+    if [ -f "${map_path}.pgm" ]; then
+        log "Map file confirmed: ${map_path}.pgm"
+    else
+        log "WARNING: map not found at ${map_path}.pgm"
+    fi
+
+    # Compute coverage
+    if [ -f "${map_path}.pgm" ]; then
+        LAST_COVERAGE=$(python3 -c "
+from disaster_sensors.benchmark_metrics import BenchmarkMetrics
+bm = BenchmarkMetrics(verbose=False)
+result = bm.compute_coverage('${map_path}.pgm')
+print(f\"{result['coverage_pct']:.1f}\")
+" 2>/dev/null || echo "N/A")
+        log "Coverage: ${LAST_COVERAGE}%  (${label})"
+    else
+        LAST_COVERAGE="N/A"
+    fi
+
+    # Generate metrics JSON
+    local json_out="$RUN_DIR/${label}_metrics.json"
+    if [ -f "$ekf_csv" ] && [ -f "$coll_csv" ] && [ -f "${map_path}.pgm" ]; then
+        python3 -m disaster_sensors.benchmark_metrics \
+            --map "${map_path}.pgm" \
+            --ekf-log "$ekf_csv" \
+            --collision-log "$coll_csv" \
+            --duration "$TRIAL_DURATION" \
+            --policy "$policy_name" \
+            --trial "$trial_num" \
+            --output "$json_out" \
+            >> "$LOG" 2>&1
+        log "Metrics JSON: $json_out"
+    else
+        python3 -c "
+import json
+data = {
+    'policy': '${policy_name}',
+    'trial': ${trial_num},
+    'duration_s': ${TRIAL_DURATION},
+    'coverage': {'coverage_pct': ${LAST_COVERAGE:-0}},
+}
+with open('${json_out}', 'w') as f:
+    json.dump(data, f, indent=2)
+" 2>/dev/null
+        log "Coverage-only JSON: $json_out"
+    fi
+
+    kill_sim
+}
+
+# ── Storage ───────────────────────────────────────────────────────────────────
+declare -a FRONTIER_COV POTFIELD_COV REACTIVE_COV RL_COV
+
+# ── Pre-run cleanup ──────────────────────────────────────────────────────────
+log "Pre-run cleanup..."
+pkill -9 -f gzserver      2>/dev/null; true
+pkill -9 -f gzclient      2>/dev/null; true
+pkill -9 -f slam_toolbox  2>/dev/null; true
+sleep 3
+wait_for_port_free
+log "Pre-run cleanup done."
+echo ""
+
+# =============================================================================
+sep
+log "PHASE 1: Frontier Explorer — ${N_TRIALS} trials"
+sep
+
+for i in $(seq 1 $N_TRIALS); do
+    log "Frontier trial $i / $N_TRIALS"
+    run_trial "frontier_explorer" "frontier_trial${i}" "frontier" "$i"
+    FRONTIER_COV+=("$LAST_COVERAGE")
+    log "Frontier trial $i result: ${LAST_COVERAGE}%"
+done
+
+# =============================================================================
+sep
+log "PHASE 2: Potential Field — ${N_TRIALS} trials"
+sep
+
+for i in $(seq 1 $N_TRIALS); do
+    log "Potential field trial $i / $N_TRIALS"
+    run_trial "potential_field_navigator" "potfield_trial${i}" "potential_field" "$i"
+    POTFIELD_COV+=("$LAST_COVERAGE")
+    log "Potential field trial $i result: ${LAST_COVERAGE}%"
+done
+
+# =============================================================================
+sep
+log "PHASE 3: Reactive FSM — ${N_TRIALS} trials"
+sep
+
+for i in $(seq 1 $N_TRIALS); do
+    log "Reactive FSM trial $i / $N_TRIALS"
+    run_trial "rl_navigator" "reactive_trial${i}" "reactive_fsm" "$i"
+    REACTIVE_COV+=("$LAST_COVERAGE")
+    log "Reactive FSM trial $i result: ${LAST_COVERAGE}%"
+done
+
+# =============================================================================
+if [ -f "$RL_MODEL_PATH" ]; then
+    sep
+    log "PHASE 4: RL Navigator — ${N_TRIALS} trials"
+    sep
+
+    for i in $(seq 1 $N_TRIALS); do
+        log "RL trial $i / $N_TRIALS"
+        run_trial "rl_navigator_model" "rl_trial${i}" "rl_navigator" "$i"
+        RL_COV+=("$LAST_COVERAGE")
+        log "RL trial $i result: ${LAST_COVERAGE}%"
+    done
+else
+    log "PHASE 4: SKIPPED — no RL model at $RL_MODEL_PATH"
+fi
+
+# =============================================================================
+sep
+log "ALL TRIALS COMPLETE"
+sep
