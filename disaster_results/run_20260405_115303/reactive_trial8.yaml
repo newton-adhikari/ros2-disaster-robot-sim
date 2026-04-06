@@ -1,0 +1,6 @@
+image: reactive_trial8.pgm
+resolution: 0.05000000074505806
+origin: [-4.888996117285086, -5.891108242109858, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196

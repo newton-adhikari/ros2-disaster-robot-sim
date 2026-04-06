@@ -1,0 +1,6 @@
+image: rl_trial1.pgm
+resolution: 0.05000000074505806
+origin: [-4.913802724325039, -5.940759377354497, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196

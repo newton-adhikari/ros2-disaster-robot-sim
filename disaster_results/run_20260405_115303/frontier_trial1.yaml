@@ -1,0 +1,6 @@
+image: frontier_trial1.pgm
+resolution: 0.05000000074505806
+origin: [-4.884582122310729, -5.88598593922759, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196

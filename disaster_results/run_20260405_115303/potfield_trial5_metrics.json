@@ -1,0 +1,29 @@
+{
+  "benchmark_version": "1.0",
+  "policy": "potential_field",
+  "trial": 5,
+  "duration_s": 300.0,
+  "coverage": {
+    "coverage_pct": 24.8,
+    "free_cells": 39682,
+    "free_area_m2": 99.21,
+    "occupied_cells": 1329,
+    "unknown_cells": 57593,
+    "total_cells": 98604,
+    "map_path": "/home/toor/disaster_results/run_20260405_115303/potfield_trial5.pgm"
+  },
+  "localisation": {
+    "rmse_m": 2.4993,
+    "max_error_m": 3.6047,
+    "n_samples": 541,
+    "duration_s": 300.4
+  },
+  "near_collision": {
+    "events": 0,
+    "rate_per_min": 0.0,
+    "total_below_threshold_s": 0.0
+  },
+  "efficiency": {
+    "efficiency_pct_per_min": 4.96
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "benchmark_version": "1.0",
+  "policy": "frontier",
+  "trial": 4,
+  "duration_s": 300.0,
+  "coverage": {
+    "coverage_pct": 55.41,
+    "free_cells": 88648,
+    "free_area_m2": 221.62,
+    "occupied_cells": 3235,
+    "unknown_cells": 56595,
+    "total_cells": 148478,
+    "map_path": "/home/toor/disaster_results/run_20260405_115303/frontier_trial4.pgm"
+  },
+  "localisation": {
+    "rmse_m": 7.7022,
+    "max_error_m": 13.6903,
+    "n_samples": 516,
+    "duration_s": 299.9
+  },
+  "near_collision": {
+    "events": 3,
+    "rate_per_min": 0.6,
+    "total_below_threshold_s": 9.1
+  },
+  "efficiency": {
+    "efficiency_pct_per_min": 11.082
+  }
+}

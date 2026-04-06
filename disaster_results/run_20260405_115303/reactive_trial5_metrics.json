@@ -1,0 +1,29 @@
+{
+  "benchmark_version": "1.0",
+  "policy": "reactive_fsm",
+  "trial": 5,
+  "duration_s": 300.0,
+  "coverage": {
+    "coverage_pct": 26.96,
+    "free_cells": 43143,
+    "free_area_m2": 107.86,
+    "occupied_cells": 1336,
+    "unknown_cells": 55754,
+    "total_cells": 100233,
+    "map_path": "/home/toor/disaster_results/run_20260405_115303/reactive_trial5.pgm"
+  },
+  "localisation": {
+    "rmse_m": 1.4167,
+    "max_error_m": 2.1271,
+    "n_samples": 593,
+    "duration_s": 308.4
+  },
+  "near_collision": {
+    "events": 0,
+    "rate_per_min": 0.0,
+    "total_below_threshold_s": 0.0
+  },
+  "efficiency": {
+    "efficiency_pct_per_min": 5.392
+  }
+}

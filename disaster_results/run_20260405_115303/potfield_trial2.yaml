@@ -1,0 +1,6 @@
+image: potfield_trial2.pgm
+resolution: 0.05000000074505806
+origin: [-5.195992896250086, -5.885678642009262, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
